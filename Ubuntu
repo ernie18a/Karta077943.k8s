@@ -33,7 +33,7 @@ do
 
   #CRIO 網路設定
   ssh $mwlist "sudo sed -i '/'1100:200'/d' /etc/cni/net.d/100-crio-bridge.conf" &> /dev/null
-	ssh $mwlist "sudo sed -i 's|{ \"dst\": \"0.0.0.0/0\" },|{ \"dst\": \"0.0.0.0/0\" }|g' /etc/cni/net.d/100-crio-bridge.conf" &> /dev/null
+  ssh $mwlist "sudo sed -i 's|{ \"dst\": \"0.0.0.0/0\" },|{ \"dst\": \"0.0.0.0/0\" }|g' /etc/cni/net.d/100-crio-bridge.conf" &> /dev/null
   ssh $mwlist "sudo sed -i 's|\[{ \"subnet\": \"10.85.0.0/16\" }\],|\[{ \"subnet\": \"10.85.0.0/16\" }\]|g' /etc/cni/net.d/100-crio-bridge.conf" &> /dev/null
 
   #Reload and enable cri-o
@@ -54,7 +54,7 @@ do
   echo " = enable modules [ br_netfilter | overlay ]"
   
   ssh $mlist "echo net.bridge.bridge-nf-call-iptables  = 1 | sudo tee /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
-	ssh $mlist "echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
+  ssh $mlist "echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
   ssh $mlist "echo net.bridge.bridge-nf-call-ip6tables = 1 | sudo tee -a /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
   echo " = enable ipv4_forward"
   ssh $mlist "sysctl --system" &> /dev/null
@@ -69,7 +69,7 @@ do
   #下載安裝Kubelet Kubeadm Kubectl
   ssh $mlist "curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg" &> /dev/null
   ssh $mlist "echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list" &> /dev/null
-	ssh $mlist "sudo apt-get update" &> /dev/null
+  ssh $mlist "sudo apt-get update" &> /dev/null
   ssh $mlist "apt-get install -y kubelet=$KUBE_VER kubeadm=$KUBE_VER kubectl=$KUBE_VER" &> /dev/null
   ssh $mlist "apt-mark hold kubelet kubeadm kubectl" &> /dev/null
   ssh $mlist "systemctl enable kubelet.service --now" &> /dev/null
@@ -103,7 +103,7 @@ k8s-worker)
 	   echo " = enable modules [ br_netfilter | overlay ]"
   
 	   ssh $wlist "echo net.bridge.bridge-nf-call-iptables  = 1 | sudo tee /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
-		 ssh $wlist "echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
+	   ssh $wlist "echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
 	   ssh $wlist "echo net.bridge.bridge-nf-call-ip6tables = 1 | sudo tee -a /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
 	   echo " = enable ipv4_forward"
 	   ssh $wlist "sysctl --system" &> /dev/null
@@ -170,15 +170,15 @@ for mlist in $m_node
       [ $? = 0 ] && echo "$mlist crio version=$crio_version" || echo "$mlist crio not install."
       ssh $mlist "sudo systemctl status crio | grep 'Active'" &> /dev/null
       [ $? = 0 ] && echo "$mlist crio Active" || echo "$mlist crio dead"
-			echo;
+      echo;
       #kubelet
-			export kubelet_version=$(kubelet --version | cut -b 11-18)
+      export kubelet_version=$(kubelet --version | cut -b 11-18)
       ssh $mlist "kubelet --version" &> /dev/null
       [ $? = 0 ] && echo "$mlist kubelet version=$kubelet_version" || echo "$mlist kubelet not install."
       ssh $mlist "sudo systemctl status kubelet | grep 'Active'" &> /dev/null
       [ $? = 0 ] && echo "$mlist kubelet Active" || echo "$mlist crio dead"
-			echo;
-			#kubeadm
+      echo;
+      #kubeadm
       export kubeadm_version=$(kubeadm version -o yaml | grep 'gitVersion' | sed 's/v//g' | cut -d ":" -f 2)
       ssh $mlist "kubeadm version" &> /dev/null
       [ $? = 0 ] && echo "$mlist kubeadm version=$kubeadm_version" || echo "$mlist kubelet not install."
@@ -187,12 +187,12 @@ for mlist in $m_node
       export kubectl_version=$(kubectl version -o yaml | grep -A 9 'clientVersion:' | grep 'gitVersion' | cut -d ":" -f 2)
       ssh $mlist "kubectl version" &> /dev/null
       [ $? = 0 ] && echo "$mlist kubectl version=$kubectl_version" || echo "$mlist kubectl not install."
-			echo;
-			#podman
+      echo;
+      #podman
       export podman_version=$(podman version | grep "^Version" | cut -d ":" -f 2 | cut -b 6-11)
       ssh $mlist "podman version" &> /dev/null
       [ $? = 0 ] && echo "$mlist podman version=$podman_version" || echo "$mlist podman not install."
-			echo;
+      echo;
     done
     
 for wlist in $w_node
@@ -203,15 +203,15 @@ for wlist in $w_node
       [ $? = 0 ] && echo "$wlist crio version=$crio_version" || echo "$wlist crio not install."
       ssh $wlist "sudo systemctl status crio | grep 'Active'" &> /dev/null
       [ $? = 0 ] && echo "$wlist crio Active" || echo "$wlist crio dead"
-			echo;
+      echo;
       #kubelet
-			export kubelet_version=$(kubelet --version | cut -b 11-18)
+      export kubelet_version=$(kubelet --version | cut -b 11-18)
       ssh $wlist "kubelet --version" &> /dev/null
       [ $? = 0 ] && echo "$wlist kubelet version=$kubelet_version" || echo "$wlist kubelet not install."
       ssh $wlist "sudo systemctl status kubelet | grep 'Active'" &> /dev/null
       [ $? = 0 ] && echo "$wlist kubelet Active" || echo "$wlist crio dead"
-			echo;
-			#kubeadm
+      echo;
+      #kubeadm
       export kubeadm_version=$(kubeadm version -o yaml | grep 'gitVersion' | sed 's/v//g' | cut -d ":" -f 2)
       ssh $wlist "kubeadm version" &> /dev/null
       [ $? = 0 ] && echo "$wlist kubeadm version=$kubeadm_version" || echo "$wlist kubelet not install."
