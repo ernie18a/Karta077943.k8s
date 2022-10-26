@@ -96,21 +96,21 @@ k8s-worker)
   for wlist in $w_node
   do
      #modules setup
-	   ssh $wlist "echo overlay | sudo tee /etc/modules-load.d/k8s.conf" &> /dev/null
-	   ssh $wlist "echo br_netfilter | sudo tee -a /etc/modules-load.d/k8s.conf" &> /dev/null
-	   ssh $wlist "sudo modprobe br_netfilter" &> /dev/null
-	   ssh $wlist "sudo modprobe overlay" &> /dev/null
-	   echo " = enable modules [ br_netfilter | overlay ]"
+     ssh $wlist "echo overlay | sudo tee /etc/modules-load.d/k8s.conf" &> /dev/null
+     ssh $wlist "echo br_netfilter | sudo tee -a /etc/modules-load.d/k8s.conf" &> /dev/null
+     ssh $wlist "sudo modprobe br_netfilter" &> /dev/null
+     ssh $wlist "sudo modprobe overlay" &> /dev/null
+     echo " = enable modules [ br_netfilter | overlay ]"
   
-	   ssh $wlist "echo net.bridge.bridge-nf-call-iptables  = 1 | sudo tee /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
-	   ssh $wlist "echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
-	   ssh $wlist "echo net.bridge.bridge-nf-call-ip6tables = 1 | sudo tee -a /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
-	   echo " = enable ipv4_forward"
-	   ssh $wlist "sysctl --system" &> /dev/null
+     ssh $wlist "echo net.bridge.bridge-nf-call-iptables  = 1 | sudo tee /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
+     ssh $wlist "echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
+     ssh $wlist "echo net.bridge.bridge-nf-call-ip6tables = 1 | sudo tee -a /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
+     echo " = enable ipv4_forward"
+     ssh $wlist "sysctl --system" &> /dev/null
 
-	   #關閉swap
-	   ssh $wlist "swapoff -a" &> /dev/null
-	   ssh $wlist "sed -e '/swap/ s/^#*/#/' -i /etc/fstab" &> /dev/null
+     #關閉swap
+     ssh $wlist "swapoff -a" &> /dev/null
+     ssh $wlist "sed -e '/swap/ s/^#*/#/' -i /etc/fstab" &> /dev/null
 
      ssh $wlist "sudo apt-get update -qy && sudo apt-get upgrade -qy && sudo apt-get install -qy net-tools curl" &> /dev/null
      ssh $wlist "curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg" &> /dev/null
@@ -130,14 +130,13 @@ podman)
   #安裝podman
   for mwlist in $m_node $w_node
   do 
-	  ssh $mwlist ". /etc/os-release" &> /dev/null
-	  ssh $mwlist "echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$CRIO_OS_VERSION/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list" &> /dev/null
-	  ssh $mwlist "curl -L "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$CRIO_OS_VERSION/Release.key" | sudo apt-key add -" &> /dev/null
-	  ssh $mwlist "sudo apt update" &> /dev/null
-	  ssh $mwlist "sudo apt -y upgrade" &> /dev/null
-	  ssh $mwlist "apt install -y podman" &> /dev/null
-    ssh $mwlist "podman version" &> /dev/null
-    
+    ssh $mwlist ". /etc/os-release" &> /dev/null
+    ssh $mwlist "echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$CRIO_OS_VERSION/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list" &> /dev/null
+    ssh $mwlist "curl -L "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$CRIO_OS_VERSION/Release.key" | sudo apt-key add -" &> /dev/null
+    ssh $mwlist "sudo apt update" &> /dev/null
+    ssh $mwlist "sudo apt -y upgrade" &> /dev/null
+    ssh $mwlist "apt install -y podman" &> /dev/null
+    ssh $mwlist "podman version" &> /dev/null 
   done
 ;;
 
