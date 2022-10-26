@@ -1,0 +1,241 @@
+#!/bin/bash
+#program : deployment Kubernetes
+#date : 2022-10-26
+
+#declare
+export IP=`hostname -i | cut -d ' ' -f 1`
+export CRIO_OS_VERSION=xUbuntu_20.04
+export CRI_VER=1.23
+export KUBE_VER=1.24.3-00
+export all_nodes_Exclude_host=$(sudo cat /etc/hosts | grep -vE '#|ip6'| awk '{ print $2 }'| grep w)
+
+m_node="m1"
+w_node="w1 w2"
+
+case $1 in
+cri-o)
+for mwlist in $m_node $w_node
+do  
+  #更新
+  ssh $mwlist "sudo apt-get update -qy && sudo apt-get upgrade -qy && sudo apt-get install -qy net-tools curl" &> /dev/null
+
+  #安裝 CRI-O 及 CRI-Tools
+  ssh $mwlist "echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/${CRIO_OS_VERSION}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list" &> /dev/null
+  ssh $mwlist "echo "deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/${CRI_VER}/${CRIO_OS_VERSION}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable:cri-o:${CRI_VER}.list" &> /dev/null
+
+  #Add the cri-o gpg keys
+  ssh $mwlist "curl -L https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:${CRI_VER}/${CRIO_OS_VERSION}/Release.key | sudo apt-key add - " &> /dev/null
+  ssh $mwlist "curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/${CRIO_OS_VERSION}/Release.key | sudo apt-key add - " &> /dev/null
+
+  #Update and install cri-o
+  ssh $mwlist "sudo apt-get update" &> /dev/null
+  ssh $mwlist "sudo apt-get install cri-o cri-o-runc cri-tools -y" &> /dev/null
+
+  #CRIO 網路設定
+  ssh $mwlist "sudo sed -i '/'1100:200'/d' /etc/cni/net.d/100-crio-bridge.conf" &> /dev/null
+	ssh $mwlist "sudo sed -i 's|{ \"dst\": \"0.0.0.0/0\" },|{ \"dst\": \"0.0.0.0/0\" }|g' /etc/cni/net.d/100-crio-bridge.conf" &> /dev/null
+  ssh $mwlist "sudo sed -i 's|\[{ \"subnet\": \"10.85.0.0/16\" }\],|\[{ \"subnet\": \"10.85.0.0/16\" }\]|g' /etc/cni/net.d/100-crio-bridge.conf" &> /dev/null
+
+  #Reload and enable cri-o
+  ssh $mwlist "systemctl daemon-reload" &> /dev/null
+  ssh $mwlist "systemctl enable crio --now" &> /dev/null
+done
+
+;;
+
+k8s-master)
+for mlist in $m_node 
+do
+  #modules setup
+  ssh $mlist "echo overlay | sudo tee /etc/modules-load.d/k8s.conf" &> /dev/null
+  ssh $mlist "echo br_netfilter | sudo tee -a /etc/modules-load.d/k8s.conf" &> /dev/null
+  ssh $mlist "sudo modprobe br_netfilter" &> /dev/null
+  ssh $mlist "sudo modprobe overlay" &> /dev/null
+  echo " = enable modules [ br_netfilter | overlay ]"
+  
+  ssh $mlist "echo net.bridge.bridge-nf-call-iptables  = 1 | sudo tee /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
+	ssh $mlist "echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
+  ssh $mlist "echo net.bridge.bridge-nf-call-ip6tables = 1 | sudo tee -a /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
+  echo " = enable ipv4_forward"
+  ssh $mlist "sysctl --system" &> /dev/null
+
+  #關閉swap
+  ssh $mlist "swapoff -a" &> /dev/null
+  ssh $mlist "sed -e '/swap/ s/^#*/#/' -i /etc/fstab" &> /dev/null
+  
+  #查詢版本
+  #apt-cache madison kubectl
+  
+  #下載安裝Kubelet Kubeadm Kubectl
+  ssh $mlist "curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg" &> /dev/null
+  ssh $mlist "echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list" &> /dev/null
+	ssh $mlist "sudo apt-get update" &> /dev/null
+  ssh $mlist "apt-get install -y kubelet=$KUBE_VER kubeadm=$KUBE_VER kubectl=$KUBE_VER" &> /dev/null
+  ssh $mlist "apt-mark hold kubelet kubeadm kubectl" &> /dev/null
+  ssh $mlist "systemctl enable kubelet.service --now" &> /dev/null
+  
+  #初始化節點並進行配置
+  ssh $mlist "kubeadm init --kubernetes-version v1.24.2 --service-cidr 10.98.0.0/24 --pod-network-cidr 10.244.0.0/16  --service-dns-domain=k8s.org --apiserver-advertise-address $IP" &> /dev/null
+
+  #為管理者配置kubectl
+  ssh $mlist "mkdir -p $HOME/.kube" &> /dev/null
+  ssh $mlist "sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config" &> /dev/null
+  ssh $mlist "sudo chown $(id -u):$(id -g) $HOME/.kube/config" &> /dev/null
+
+  #使Master Node也可作為Worker Node
+  ssh $mlist "kubectl taint node $m_node node-role.kubernetes.io/master:NoSchedule-" &> /dev/null
+  ssh $mlist "kubectl taint node $m_node node-role.kubernetes.io/control-plane:NoSchedule-" &> /dev/null
+
+  #安裝flannel網路套件
+  ssh $mlist "kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml" &> /dev/null
+done
+;;
+
+k8s-worker)
+  export JOIN=$(echo " sudo `kubeadm token create --print-join-command 2>/dev/null`")
+  for wlist in $w_node
+  do
+     #modules setup
+	   ssh $wlist "echo overlay | sudo tee /etc/modules-load.d/k8s.conf" &> /dev/null
+	   ssh $wlist "echo br_netfilter | sudo tee -a /etc/modules-load.d/k8s.conf" &> /dev/null
+	   ssh $wlist "sudo modprobe br_netfilter" &> /dev/null
+	   ssh $wlist "sudo modprobe overlay" &> /dev/null
+	   echo " = enable modules [ br_netfilter | overlay ]"
+  
+	   ssh $wlist "echo net.bridge.bridge-nf-call-iptables  = 1 | sudo tee /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
+		 ssh $wlist "echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
+	   ssh $wlist "echo net.bridge.bridge-nf-call-ip6tables = 1 | sudo tee -a /etc/sysctl.d/99-k8s-cri.conf" &> /dev/null
+	   echo " = enable ipv4_forward"
+	   ssh $wlist "sysctl --system" &> /dev/null
+
+	   #關閉swap
+	   ssh $wlist "swapoff -a" &> /dev/null
+	   ssh $wlist "sed -e '/swap/ s/^#*/#/' -i /etc/fstab" &> /dev/null
+
+     ssh $wlist "sudo apt-get update -qy && sudo apt-get upgrade -qy && sudo apt-get install -qy net-tools curl" &> /dev/null
+     ssh $wlist "curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg" &> /dev/null
+     ssh $wlist "echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list" &> /dev/null
+     ssh $wlist "apt-get update" &> /dev/null
+     ssh $wlist "apt-get install -y kubelet kubeadm" &> /dev/null
+     ssh $wlist "apt-mark hold kubelet kubeadm" &> /dev/null
+     ssh $wlist "$JOIN"
+     kubectl label node $wlist node-role.kubernetes.io/worker= &> /dev/null
+     #clear;echo -n "Prepare to reboot worker node ...";sleep 3;echo
+     #echo "worker node $wlist rebooting...";sleep 3;echo
+     #ssh $wlist "sudo reboot"
+  done
+;;
+
+podman)
+  #安裝podman
+  for mwlist in $m_node $w_node
+  do 
+	  ssh $mwlist ". /etc/os-release" &> /dev/null
+	  ssh $mwlist "echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$CRIO_OS_VERSION/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list" &> /dev/null
+	  ssh $mwlist "curl -L "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$CRIO_OS_VERSION/Release.key" | sudo apt-key add -" &> /dev/null
+	  ssh $mwlist "sudo apt update" &> /dev/null
+	  ssh $mwlist "sudo apt -y upgrade" &> /dev/null
+	  ssh $mwlist "apt install -y podman" &> /dev/null
+    ssh $mwlist "podman version" &> /dev/null
+    
+  done
+;;
+
+ssh-key) 
+if [ "${2}" == "host" ]
+    then
+      sudo rm -r .ssh/*
+      ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa <<< y
+      ssh-copy-id ${USER}@localhost
+    elif [ "${2}" == "renew" ]
+      then
+        sudo rm -r .ssh/*
+        ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa <<< y
+        ssh-copy-id ${USER}@localhost
+        for mwlist in ${all_nodes_Exclude_host}
+          do
+            scp -r .ssh ${mwlist}:
+          done
+      else
+        echo "Please input parameter [ host | renew ] "
+  fi
+;;
+
+check)
+for mlist in $m_node
+    do
+      #crio
+      export crio_version=$(crio version | grep "^Version" | cut -d ":" -f 2 | cut -b 10-16)
+      ssh $mlist "crio version | grep "^Version"" &> /dev/null
+      [ $? = 0 ] && echo "$mlist crio version=$crio_version" || echo "$mlist crio not install."
+      ssh $mlist "sudo systemctl status crio | grep 'Active'" &> /dev/null
+      [ $? = 0 ] && echo "$mlist crio Active" || echo "$mlist crio dead"
+			echo;
+      #kubelet
+			export kubelet_version=$(kubelet --version | cut -b 11-18)
+      ssh $mlist "kubelet --version" &> /dev/null
+      [ $? = 0 ] && echo "$mlist kubelet version=$kubelet_version" || echo "$mlist kubelet not install."
+      ssh $mlist "sudo systemctl status kubelet | grep 'Active'" &> /dev/null
+      [ $? = 0 ] && echo "$mlist kubelet Active" || echo "$mlist crio dead"
+			echo;
+			#kubeadm
+      export kubeadm_version=$(kubeadm version -o yaml | grep 'gitVersion' | sed 's/v//g' | cut -d ":" -f 2)
+      ssh $mlist "kubeadm version" &> /dev/null
+      [ $? = 0 ] && echo "$mlist kubeadm version=$kubeadm_version" || echo "$mlist kubelet not install."
+      echo; 
+      #kubectl
+      export kubectl_version=$(kubectl version -o yaml | grep -A 9 'clientVersion:' | grep 'gitVersion' | cut -d ":" -f 2)
+      ssh $mlist "kubectl version" &> /dev/null
+      [ $? = 0 ] && echo "$mlist kubectl version=$kubectl_version" || echo "$mlist kubectl not install."
+			echo;
+			#podman
+      export podman_version=$(podman version | grep "^Version" | cut -d ":" -f 2 | cut -b 6-11)
+      ssh $mlist "podman version" &> /dev/null
+      [ $? = 0 ] && echo "$mlist podman version=$podman_version" || echo "$mlist podman not install."
+			echo;
+    done
+    
+for wlist in $w_node
+    do
+      #crio
+      export crio_version=$(crio version | grep "^Version" | cut -d ":" -f 2 | cut -b 10-16)
+      ssh $wlist "crio version | grep "^Version"" &> /dev/null
+      [ $? = 0 ] && echo "$wlist crio version=$crio_version" || echo "$wlist crio not install."
+      ssh $wlist "sudo systemctl status crio | grep 'Active'" &> /dev/null
+      [ $? = 0 ] && echo "$wlist crio Active" || echo "$wlist crio dead"
+			echo;
+      #kubelet
+			export kubelet_version=$(kubelet --version | cut -b 11-18)
+      ssh $wlist "kubelet --version" &> /dev/null
+      [ $? = 0 ] && echo "$wlist kubelet version=$kubelet_version" || echo "$wlist kubelet not install."
+      ssh $wlist "sudo systemctl status kubelet | grep 'Active'" &> /dev/null
+      [ $? = 0 ] && echo "$wlist kubelet Active" || echo "$wlist crio dead"
+			echo;
+			#kubeadm
+      export kubeadm_version=$(kubeadm version -o yaml | grep 'gitVersion' | sed 's/v//g' | cut -d ":" -f 2)
+      ssh $wlist "kubeadm version" &> /dev/null
+      [ $? = 0 ] && echo "$wlist kubeadm version=$kubeadm_version" || echo "$wlist kubelet not install."
+      echo;
+      #kubectl
+      export kubectl_version=$(kubectl version -o yaml | grep -A 9 'clientVersion:' | grep 'gitVersion' | cut -d ":" -f 2)
+      ssh $wlist "kubectl version" &> /dev/null
+      [ $? = 0 ] && echo "$wlist kubectl version=$kubectl_version" || echo "$wlist kubectl not install."
+      echo;
+      #podman
+      export podman_version=$(podman version | grep "^Version" | cut -d ":" -f 2 | cut -b 6-11)
+      ssh $wlist "podman version" &> /dev/null
+      [ $? = 0 ] && echo "$wlist podman version=$podman_version" || echo "$wlist podman not install."
+    done
+;;
+
+*)
+  echo;
+  echo "<ssh-key> : Let ssh login without password. [ host | renew ]"
+  echo "please input parameter";echo
+  echo "<cri-o> : install CRI cri-o"
+  echo "<k8s-master> : create K8S master"
+  echo "<k8s-worker> : create K8S worker"
+  echo "<podman> : create podman"
+  echo "<check> : check intall"
+;;
+esac
