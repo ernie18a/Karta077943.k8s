@@ -116,7 +116,7 @@ k8s-worker)
      ssh $wlist "curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg" &> /dev/null
      ssh $wlist "echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list" &> /dev/null
      ssh $wlist "apt-get update" &> /dev/null
-     ssh $wlist "apt-get install -y kubelet kubeadm" &> /dev/null
+     ssh $wlist "apt-get install -y kubelet=$KUBE_VER kubeadm=$KUBE_VER" &> /dev/null
      ssh $wlist "apt-mark hold kubelet kubeadm" &> /dev/null
      ssh $wlist "$JOIN"
      kubectl label node $wlist node-role.kubernetes.io/worker= &> /dev/null
