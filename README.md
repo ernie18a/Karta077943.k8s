@@ -11,5 +11,5 @@ Kubernetes-deploy
 >k8s-worker : create K8S worker  
 >podman : install podman  
 >check : check version and status   
->root : root nodes  
+>reboot : reboot nodes  
  --------------------------------   
