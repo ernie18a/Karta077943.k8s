@@ -75,7 +75,7 @@ do
   ssh $mlist "systemctl enable kubelet.service --now" &> /dev/null
   
   #初始化節點並進行配置
-  ssh $mlist "kubeadm init --kubernetes-version v1.24.2 --service-cidr 10.98.0.0/24 --pod-network-cidr 10.244.0.0/16  --service-dns-domain=k8s.org --apiserver-advertise-address $IP" &> /dev/null
+  ssh $mlist "kubeadm init --kubernetes-version v1.24.3 --service-cidr 10.98.0.0/24 --pod-network-cidr 10.244.0.0/16  --service-dns-domain=k8s.org --apiserver-advertise-address $IP" &> /dev/null
 
   #為管理者配置kubectl
   ssh $mlist "mkdir -p $HOME/.kube" &> /dev/null
