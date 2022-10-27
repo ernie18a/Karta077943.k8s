@@ -5,7 +5,7 @@
 #declare
 export IP=`hostname -i | cut -d ' ' -f 1`
 export CRIO_OS_VERSION=xUbuntu_20.04
-export CRI_VER=1.2
+export CRI_VER=1.24
 export KUBE_VER=1.24.3-00
 export all_nodes_Exclude_host=$(sudo cat /etc/hosts | grep -vE '#|ip6'| awk '{ print $2 }'| grep w)
 
