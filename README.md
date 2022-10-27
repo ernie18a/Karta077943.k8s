@@ -1,5 +1,5 @@
 Before starting to deploy K8S  
-1.We should first set the `hostname` and `host` of the nodes  
+1.We should first set the `hostname` and `hosts` of the nodes  
 2.set root ssh login `echo PermitRootLogin Yes | sudo tee -a /etc/ssh/sshd_config`  
 3.install openssh-server `sudo apt-get install openssh-server`  
   
