@@ -242,10 +242,19 @@ for rbwlist in $w_node
     ssh $rbmlist "sudo reboot"
    done
 
-;
+;;
+
+system-configure)
+  #setup ssh
+  cat /etc/ssh/ssh_config | grep 'StrictHostKeyChecking no'
+  [ $? != 0 ] && echo 'StrictHostKeyChecking no' | sudo tee -a /etc/ssh/ssh_config
+  sudo sed -i "s/%sudo\tALL=(ALL:ALL) ALL/%sudo\tALL=(ALL:ALL) NOPASSWD: ALL/g" /etc/sudoers
+
+;;
 
 *)
   echo;
+  echo "<system-configure> : setup ssh"
   echo "<ssh-key> : Let ssh login without password. [ host | renew ]"
   echo "please input parameter";echo
   echo "<cri-o> : install CRI cri-o"
