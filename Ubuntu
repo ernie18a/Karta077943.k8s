@@ -1,6 +1,6 @@
 #!/bin/bash
 #program : deployment Kubernetes
-#date : 2022-10-26
+#date : 2022-10-27
 
 #declare
 export IP=`hostname -i | cut -d ' ' -f 1`
@@ -227,6 +227,23 @@ for wlist in $w_node
     done
 ;;
 
+reboot)
+for rbwlist in $w_node
+   do
+    clear;echo -n "Prepare to reboot...";sleep 3;echo
+    echo "node $rbwlist rebooting...";sleep 3;echo
+    ssh $rbwlist "sudo reboot"
+   done
+
+  for rbmlist in $m_node
+   do
+    clear;echo -n "Prepare to reboot...";sleep 3;echo
+    echo "node $rbmlist rebooting...";sleep 3;echo
+    ssh $rbmlist "sudo reboot"
+   done
+
+;
+
 *)
   echo;
   echo "<ssh-key> : Let ssh login without password. [ host | renew ]"
@@ -234,7 +251,8 @@ for wlist in $w_node
   echo "<cri-o> : install CRI cri-o"
   echo "<k8s-master> : create K8S master"
   echo "<k8s-worker> : create K8S worker"
-  echo "<podman> : create podman"
+  echo "<podman> : install podman"
   echo "<check> : check intall"
+  echo "<reboot> : reboot nodes"
 ;;
 esac
