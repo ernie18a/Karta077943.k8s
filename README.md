@@ -5,11 +5,11 @@ ssh setup
  --------------------------------   
   
 Kubernetes-deploy  
-`cri-o > k8s-master > k8s-worker > podman > check`
+`cri-o > k8s-master > k8s-worker > podman`
 >cri-o : install CRI cri-o  
 >k8s-master : create K8S master  
 >k8s-worker : create K8S worker  
->podman : create podman  
+>podman : install podman  
 >check : check version and status   
 >root : root nodes  
  --------------------------------   
