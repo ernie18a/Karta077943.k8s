@@ -133,9 +133,9 @@ podman)
     ssh $mwlist ". /etc/os-release" &> /dev/null
     ssh $mwlist "echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$CRIO_OS_VERSION/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list" &> /dev/null
     ssh $mwlist "curl -L "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$CRIO_OS_VERSION/Release.key" | sudo apt-key add -" &> /dev/null
-    ssh $mwlist "sudo apt update" &> /dev/null
-    ssh $mwlist "sudo apt -y upgrade" &> /dev/null
-    ssh $mwlist "apt install -y podman" &> /dev/null
+    ssh $mwlist "sudo apt-get update" &> /dev/null
+    ssh $mwlist "sudo apt-get -y upgrade" &> /dev/null
+    ssh $mwlist "apt-get install -y podman" &> /dev/null
     ssh $mwlist "podman version" &> /dev/null 
   done
 ;;
