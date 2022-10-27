@@ -3,7 +3,7 @@
 #date : 2022-10-27
 
 #declare
-export IP=`hostname -i | cut -d ' ' -f 1`
+export IP=`hostname -i | cut -d ' ' -f 2`
 export CRIO_OS_VERSION=xUbuntu_20.04
 export CRI_VER=1.24
 export KUBE_VER=1.24.3-00
